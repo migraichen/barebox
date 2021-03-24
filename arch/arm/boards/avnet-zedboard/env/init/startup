@@ -1,0 +1,2 @@
+#!/bin/sh
+firmwareload -t zynq-fpga-manager /mnt/mmc0.0/design_1_wrapper.bit

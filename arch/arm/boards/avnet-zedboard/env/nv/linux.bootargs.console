@@ -1,1 +1,1 @@
-console=ttyPS1,115200
+console=ttyPS0,115200
