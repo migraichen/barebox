@@ -15,55 +15,17 @@
 #include <common.h>
 #include <init.h>
 #include <dma.h>
+#ifdef CONFIG_FIRMWARE_ZYNQMP_FPGA
 #include <mach/firmware-zynqmp.h>
-
-#define ZYNQMP_PM_FEATURE_BYTE_ORDER_IRREL	BIT(0)
-#define ZYNQMP_PM_FEATURE_SIZE_NOT_NEEDED	BIT(1)
-
-#define ZYNQMP_PM_VERSION_1_0_FEATURES	0
-#define ZYNQMP_PM_VERSION_1_1_FEATURES	(ZYNQMP_PM_FEATURE_BYTE_ORDER_IRREL | \
-					 ZYNQMP_PM_FEATURE_SIZE_NOT_NEEDED)
-
-/*
- * Xilinx KU040 Bitstream Composition:
- *
- * Bitstream can be provided with an optinal header (`struct bs_header`).
- * The true bitstream starts with the binary-header composed of 21 words:
- *
- *  0: 0xFFFFFFFF (Dummy pad word)
- *     ...
- * 15: 0xFFFFFFFF (Dummy pad word)
- * 16: 0x000000BB (Bus width auto detect word 1)
- * 17: 0x11220044 (Bus width auto detect word 2)
- * 18: 0xFFFFFFFF (Dummy pad word)
- * 19: 0xFFFFFFFF (Dummy pad word)
- * 20: 0xAA995566 (Sync word)
- *
- * See Xilinx UG570 (v1.11) September 30 2019, Chapter 9 "Configuration
- * Details - Bitstream Composition" for further details.
- */
-#define DUMMY_WORD			0xFFFFFFFF
-#define BUS_WIDTH_AUTO_DETECT1_OFFSET	16
-#define BUS_WIDTH_AUTO_DETECT1		0x000000BB
-#define BUS_WIDTH_AUTO_DETECT2_OFFSET	17
-#define BUS_WIDTH_AUTO_DETECT2		0x11220044
-#define SYNC_WORD_OFFSET		20
-#define SYNC_WORD			0xAA995566
-#define BIN_HEADER_LENGTH		21
+#endif
+#ifdef CONFIG_FIRMWARE_ZYNQ7000_FPGA
+#include <mach/firmware-zynq.h>
+#include <mach/zynq7000-regs.h>
+#endif
 
 enum xilinx_byte_order {
 	XILINX_BYTE_ORDER_BIT,
 	XILINX_BYTE_ORDER_BIN,
-};
-
-struct fpgamgr {
-	struct firmware_handler fh;
-	struct device_d dev;
-	const struct zynqmp_eemi_ops *eemi_ops;
-	int programmed;
-	char *buf;
-	size_t size;
-	u32 features;
 };
 
 struct bs_header {
@@ -234,6 +196,13 @@ static int fpgamgr_program_finish(struct firmware_handler *fh)
 		goto err_free;
 	}
 
+	buf_aligned = dma_alloc_coherent(body_length, DMA_ADDRESS_BROKEN);
+	if (!buf_aligned) {
+		status = -ENOBUFS;
+		goto err_free;
+	}
+
+#ifdef CONFIG_FIRMWARE_ZYNQMP_FPGA
 	if (!(mgr->features & ZYNQMP_PM_FEATURE_SIZE_NOT_NEEDED)) {
 		buf_size = dma_alloc_coherent(sizeof(*buf_size),
 		DMA_ADDRESS_BROKEN);
@@ -242,12 +211,6 @@ static int fpgamgr_program_finish(struct firmware_handler *fh)
 			goto err_free;
 		}
 		*buf_size = body_length;
-	}
-
-	buf_aligned = dma_alloc_coherent(body_length, DMA_ADDRESS_BROKEN);
-	if (!buf_aligned) {
-		status = -ENOBUFS;
-		goto err_free;
 	}
 
 	if (!(mgr->features & ZYNQMP_PM_FEATURE_BYTE_ORDER_IRREL) &&
@@ -271,7 +234,32 @@ static int fpgamgr_program_finish(struct firmware_handler *fh)
 		status = mgr->eemi_ops->fpga_load(addr, (u32)(body_length),
 						  flags);
 	}
+#endif
+#ifdef CONFIG_FIRMWARE_ZYNQ7000_FPGA
+	/* UG585 (v1.12.2) July 1, 2018 Chapter 6.4.3
+	 * In all modes, the DMA transactions must be 64-byte aligned to prevent
+	 * accidently crossing a 4K byte boundary.
+	 */
+	if(byte_order == XILINX_BYTE_ORDER_BIN)
+		copy_words_swapped((u32 *)buf_aligned, body, body_length / sizeof(u32));
+	else
+		memcpy((u32 *)buf_aligned, body, body_length);
 
+	addr = (u32)buf_aligned;
+
+	writel(0x0000DF0D, ZYNQ_SLCR_UNLOCK);
+	writel(0x0000000f, ZYNQ_SLCR_BASE + 0x240); // assert FPGA resets
+
+	writel(0x00000000, ZYNQ_SLCR_BASE + 0x900); // disable levelshifter
+	writel(0x0000000a, ZYNQ_SLCR_BASE + 0x900); // enable levelshifter PS-PL
+
+	status = mgr->devc_ops->fpga_load(mgr, addr, (u32)(body_length), 0);
+
+	writel(0x0000000f, ZYNQ_SLCR_BASE + 0x900); // enable all levelshifter
+	writel(0x00000000, ZYNQ_SLCR_BASE + 0x240); // deassert FPGA resets
+
+	writel(0x0000767B, ZYNQ_SLCR_LOCK);
+#endif
 	if (status < 0)
 		dev_err(&mgr->dev, "unable to load fpga\n");
 
@@ -313,8 +301,10 @@ static int fpgamgr_program_start(struct firmware_handler *fh)
 	return 0;
 }
 
+
 static int programmed_get(struct param_d *p, void *priv)
 {
+#ifdef CONFIG_FIRMWARE_ZYNQMP_FPGA
 	struct fpgamgr *mgr = priv;
 	u32 status = 0x00;
 	int ret = 0;
@@ -324,7 +314,7 @@ static int programmed_get(struct param_d *p, void *priv)
 		return ret;
 
 	mgr->programmed = !!(status & ZYNQMP_PCAP_STATUS_FPGA_DONE);
-
+#endif
 	return 0;
 }
 
@@ -336,6 +326,7 @@ static int zynqmp_fpga_probe(struct device_d *dev)
 	const char *model = NULL;
 	struct param_d *p;
 	u32 api_version;
+	struct resource *iores;
 	int ret;
 
 	mgr = xzalloc(sizeof(*mgr));
@@ -354,6 +345,7 @@ static int zynqmp_fpga_probe(struct device_d *dev)
 		fh->model = xstrdup(model);
 	fh->dev = dev;
 
+#ifdef CONFIG_FIRMWARE_ZYNQMP_FPGA
 	mgr->eemi_ops = zynqmp_pm_get_eemi_ops();
 
 	ret = mgr->eemi_ops->get_api_version(&api_version);
@@ -361,11 +353,21 @@ static int zynqmp_fpga_probe(struct device_d *dev)
 		dev_err(&mgr->dev, "could not get API version\n");
 		goto out;
 	}
-
-	mgr->features = 0;
-
 	if (api_version >= ZYNQMP_PM_VERSION(1, 1))
 		mgr->features |= ZYNQMP_PM_VERSION_1_1_FEATURES;
+#endif
+#ifdef CONFIG_FIRMWARE_ZYNQ7000_FPGA
+	iores = dev_request_mem_resource(dev, 0);
+	if (IS_ERR(iores)) {
+		ret = PTR_ERR(iores);
+		goto out;
+	}
+	mgr->regs = IOMEM(iores->start);
+	mgr->devc_ops = zynq_get_devc_ops();
+	/* Unlock DevC in case BootROM did not do it */
+	writel(DEVC_UNLOCK_CODE, mgr->regs + UNLOCK_OFFSET);
+#endif
+	mgr->features = 0;
 
 	dev_dbg(dev, "Registering ZynqMP FPGA programmer\n");
 	mgr->dev.id = DEVICE_ID_SINGLE;
@@ -400,9 +402,8 @@ out:
 }
 
 static struct of_device_id zynqmpp_fpga_id_table[] = {
-	{
-		.compatible = "xlnx,zynqmp-pcap-fpga",
-	},
+	{ .compatible = "xlnx,zynqmp-pcap-fpga" },
+	{ .compatible = "xlnx,zynq-devcfg-1.0" },
 	{ /* sentinel */ }
 };
 

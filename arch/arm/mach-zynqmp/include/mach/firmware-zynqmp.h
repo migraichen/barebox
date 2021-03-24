@@ -15,6 +15,8 @@
 #ifndef FIRMWARE_ZYNQMP_H_
 #define FIRMWARE_ZYNQMP_H_
 
+#include <firmware.h>
+
 #define PAYLOAD_ARG_CNT			4
 
 #define ZYNQMP_PM_VERSION(MAJOR, MINOR)	((MAJOR << 16) | MINOR)
@@ -26,6 +28,50 @@
 #define ZYNQMP_FPGA_BIT_ONLY_BIN	BIT(5)
 
 #define ZYNQMP_PCAP_STATUS_FPGA_DONE	BIT(3)
+
+#define ZYNQMP_PM_FEATURE_BYTE_ORDER_IRREL	BIT(0)
+#define ZYNQMP_PM_FEATURE_SIZE_NOT_NEEDED	BIT(1)
+
+#define ZYNQMP_PM_VERSION_1_0_FEATURES	0
+#define ZYNQMP_PM_VERSION_1_1_FEATURES	(ZYNQMP_PM_FEATURE_BYTE_ORDER_IRREL | \
+					 ZYNQMP_PM_FEATURE_SIZE_NOT_NEEDED)
+
+/*
+ * Xilinx KU040 Bitstream Composition:
+ *
+ * Bitstream can be provided with an optinal header (`struct bs_header`).
+ * The true bitstream starts with the binary-header composed of 21 words:
+ *
+ *  0: 0xFFFFFFFF (Dummy pad word)
+ *     ...
+ * 15: 0xFFFFFFFF (Dummy pad word)
+ * 16: 0x000000BB (Bus width auto detect word 1)
+ * 17: 0x11220044 (Bus width auto detect word 2)
+ * 18: 0xFFFFFFFF (Dummy pad word)
+ * 19: 0xFFFFFFFF (Dummy pad word)
+ * 20: 0xAA995566 (Sync word)
+ *
+ * See Xilinx UG570 (v1.11) September 30 2019, Chapter 9 "Configuration
+ * Details - Bitstream Composition" for further details.
+ */
+#define DUMMY_WORD			0xFFFFFFFF
+#define BUS_WIDTH_AUTO_DETECT1_OFFSET	16
+#define BUS_WIDTH_AUTO_DETECT1		0x000000BB
+#define BUS_WIDTH_AUTO_DETECT2_OFFSET	17
+#define BUS_WIDTH_AUTO_DETECT2		0x11220044
+#define SYNC_WORD_OFFSET		20
+#define SYNC_WORD			0xAA995566
+#define BIN_HEADER_LENGTH		21
+
+struct fpgamgr {
+	struct firmware_handler fh;
+	struct device_d dev;
+	const struct zynqmp_eemi_ops *eemi_ops;
+	int programmed;
+	char *buf;
+	size_t size;
+	u32 features;
+};
 
 enum pm_ioctl_id {
 	IOCTL_SET_PLL_FRAC_MODE = 8,

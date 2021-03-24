@@ -1,2 +1,2 @@
-obj-y += zynq.o bootm-zynqimg.o
+obj-y += bootm-zynqimg.o firmware-zynq.o zynq.o
 lwl-y += cpu_init.o
