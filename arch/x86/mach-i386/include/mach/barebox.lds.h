@@ -73,7 +73,7 @@
  *
  * @attention The address must be a multiple of 512.
  */
-#define LOAD_AREA 0x7e00
+#define LOAD_AREA 0x8000
 #define LOAD_SEGMENT 0x0000
 
 /**
