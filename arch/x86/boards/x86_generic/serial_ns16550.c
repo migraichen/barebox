@@ -25,10 +25,8 @@ static int pc_console_init(void)
 	barebox_set_hostname("x86");
 
 	/* Register the serial port */
-	add_ns16550_device(DEVICE_ID_DYNAMIC, 0x3f8, 8, IORESOURCE_IO,
-			   &serial_plat);
-	add_ns16550_device(DEVICE_ID_DYNAMIC, 0x2f8, 8, IORESOURCE_IO,
-			   &serial_plat);
+	add_ns16550_device(DEVICE_ID_DYNAMIC, 0x3f8, 8, IORESOURCE_IO | IORESOURCE_MEM_8BIT, &serial_plat);
+//	add_ns16550_device(DEVICE_ID_DYNAMIC, 0x3f8, 8, IORESOURCE_IO | IORESOURCE_MEM_8BIT, &serial_plat);
 
 	return 0;
 }
