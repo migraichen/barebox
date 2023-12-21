@@ -54,6 +54,14 @@ config PCI_LAYERSCAPE
 	select OF_PCI
 	select PCI
 
+config PCI_X86_GENERIC
+	bool "Generic x86 PCI host controller support"
+	depends on X86 && MACH_X86_GENERIC
+	select PCI
+	help
+	  Say Y here if you want to enable support for generic x86-based
+	  PCI host controllers.
+
 endmenu
 
 endif
