@@ -84,6 +84,7 @@ choice
 
 	config X86_BIOS_BRINGUP
 		bool "16 bit BIOS"
+		select HW_HAS_PCI
 		help
 		  Barebox will act as a BIOS based bootloader. This includes
 		  some 16 bit real mode code and some restrictions everyone knows
