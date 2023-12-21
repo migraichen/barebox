@@ -58,13 +58,13 @@ choice
 config MACH_X86_GENERIC
 	bool "Generic x86"
 	select X86_BOOTLOADER
-	depends on !X86_EFI 
+	depends on !X86_EFI
 	help
 	  Say Y here if you want barebox to be your BIOS based bootloader
 
 config MACH_EFI_GENERIC
 	bool "Generic EFI"
-	depends on X86_EFI 
+	depends on X86_EFI
 	select HAS_DEBUG_LL
 	help
 	  Say Y here if you want barebox to be your EFI based bootloader
