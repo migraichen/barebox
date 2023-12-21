@@ -333,7 +333,7 @@ CONFIG_DISK=y
 # drive types
 #
 # CONFIG_DISK_BIOS is not set
-# CONFIG_DISK_ATA is not set
+CONFIG_DISK_ATA=y
 
 #
 # interface types
