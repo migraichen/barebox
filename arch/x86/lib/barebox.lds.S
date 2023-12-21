@@ -10,7 +10,7 @@ ENTRY(_start)
 MEMORY
 {
 	mbr(rwx): ORIGIN = TEXT_BASE, LENGTH = 2 * SECTOR_SIZE
-	barebox (rwx) : ORIGIN = TEXT_BASE + SECTOR_SIZE, LENGTH = (256 * 1024 * 1024)
+	barebox (rwx) : ORIGIN = TEXT_BASE + 2 * SECTOR_SIZE, LENGTH = (256 * 1024 * 1024)
 }
 
 SECTIONS
