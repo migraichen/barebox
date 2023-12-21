@@ -129,6 +129,8 @@ load_loop:
 start_main:
 	movw $jmp_string, %si
 	call output_message
+
+c:
 	jmp start_pre_uboot
 /*
  * die if there is no LBA support
