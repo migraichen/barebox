@@ -20,12 +20,12 @@ static int bochs_isa_detect(void)
 	if ((ret & 0xB0C0) != 0xB0C0)
 		return -ENODEV;
 
-	dev = device_alloc("bochs-dispi", 0);
+	dev = device_alloc("bochs-isa-dispi", 0);
 
 	ret = platform_device_register(dev);
 	if (ret)
 		return ret;
 
-	return bochs_hw_probe(dev, (void *)0xe0000000, NULL);
+	return bochs_hw_probe(dev, (void *)0xfd000000, NULL);
 }
 device_initcall(bochs_isa_detect);
