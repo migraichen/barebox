@@ -87,8 +87,6 @@ static void i8042_kbd_poll(void *arg)
 	if ((inb(I8042_STS_REG) & STATUS_OBF) == 0)
 		goto out;
 
-//	pr_info("DBG: %s\n", __func__);
-
 	scan_code = inb(I8042_DATA_REG);
 	if (scan_code == 0xfa) {
 		goto out;
@@ -114,8 +112,6 @@ static void i8042_kbd_poll(void *arg)
 		if (!ext_key_map[i])
 			goto out;
 	}
-
-//	pr_info("DBG: %s 0x%02x %d\n", __func__, scan_code, release);
 
 	input_report_key_event(&data->input, scan_code, !release);
 
@@ -236,8 +232,6 @@ static int __init i8042_kbd_init(void)
 {
 	struct i8042_kbd_pdata *data;
 	int ret, try;
-
-	pr_info("DBG: %s\n", __func__);
 
 	if (!kbd_controller_present()) {
 		pr_err("i8042 keyboard controller is not present\n");
